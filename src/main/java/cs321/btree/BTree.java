@@ -1,6 +1,202 @@
 package cs321.btree;
 
-public class BTree
+import java.io.IOException;
+import java.io.PrintWriter;
+
+public class BTree<T extends Comparable<T>> implements BTreeInterface
 {
+    //------------------------------------------------------------------
+    // Private Node Class
+    //------------------------------------------------------------------
+
+    /**
+     * Inner class to represent a binary search tree node.
+     *
+     */
+    private class Node<S extends Comparable<S>> implements Comparable<Node<S>> {
+        private Node<S> left,right,parent;
+        private boolean isLeaf;
+        private S key;
+
+        /**
+         * Constructor for a node.
+         * @param element
+         */
+        public Node(S element) {
+            key = element;
+            left = right = parent = null;
+        }
+
+
+        /**
+         * {@inheritDoc}
+         */
+        public int compareTo(Node<S> otherNode) {
+            return key.compareTo(otherNode.key);
+        }
+
+
+        /**
+         * {@inheritDoc}
+         */
+        public String toString() {
+            return "Node:  key = " + key.toString();
+        }
+
+    }// end of Private Node Class
+
+    //------------------------------------------------------------------
+    // Variables
+    //------------------------------------------------------------------
+    private int size, height, degree;
+    private Node<T> root;
+    //------------------------------------------------------------------
+    // Constructor
+    //------------------------------------------------------------------
+
+    /**
+     * Creates an empty BTree
+     */
+    public BTree(String name){
+        this.root  = null;
+        this.size = 0;
+    }
+
+    public BTree(int degree, String name) {
+        this.root  = null;
+        this.size = 0;
+        this.degree = degree;
+    }
+
+    //------------------------------------------------------------------
+    // Exception
+    //------------------------------------------------------------------
+
+    /**
+     * Write an exception to prevent the user form writing a BTree of degree 1
+     * Otherwise we have a BTree with zero keys at t - 1 = keys.
+     *
+     * Write the Exception in the BTreeException Class
+     */
+
+
+    //------------------------------------------------------------------
+    // Methods
+    //------------------------------------------------------------------
+
+    /**
+     * @return Returns the number of keys in the BTree.
+     */
+    @Override
+    public long getSize() {
+        return size;
+    }
+
+    /**
+     * @return The degree of the BTree.
+     */
+    @Override
+    public int getDegree() {
+        return degree;
+    }
+
+    /**
+     * @return Returns the number of nodes in the BTree.
+     */
+    @Override
+    public long getNumberOfNodes() {
+        return 0;
+    }
+
+    /**
+     * @return The height of the BTree
+     */
+    @Override
+    public int getHeight() {
+        return height; // This is wrong
+    }
+
+
+    /**
+     * Insert a given SSH key into the B-Tree. If the key already exists in the B-Tree,
+     * the frequency count is incremented. Otherwise, a new node is inserted
+     * following the B-Tree insertion algorithm.
+     *
+     * @param obj A TreeObject representing an SSH key.
+     */
+    @Override
+    public void insert(TreeObject obj) throws IOException {
+
+    }
+
+    /**
+     * Print out all objects in the given BTree in an inorder traversal to a file.
+     *
+     * @param out PrintWriter object representing output.
+     */
+    @Override
+    public void dumpToFile(PrintWriter out) throws IOException {
+
+    }
+
+    /**
+     * Dump out all objects in the given BTree in an inorder traversal to a table in the database.
+     * <p>
+     * If the database does not exist, then it is created and the table is added.
+     * <p>
+     * If the provided database already exists, then the table is added. If the table already exists,
+     * then the table is replaced.
+     *
+     * @param dbName    String referring to the name of the database.
+     * @param tableName String referring to the table of the database.
+     */
+    @Override
+    public void dumpToDatabase(String dbName, String tableName) throws IOException {
+
+    }
+
+    /**
+     * Searches for a key in the given BTree.
+     *
+     * @param key The key value to search for.
+     */
+    @Override
+    public TreeObject search(String key) throws IOException {
+        return null;
+    }
+
+    /**
+     * Deletes a key from the BTree. Not Implemented.
+     *
+     * @param key the key to be deleted
+     */
+    @Override
+    public void delete(String key) {
+
+    }
+
+    //------------------------------------------------------------------
+    // Private Helper Methods
+    //------------------------------------------------------------------
+
+    private Node Successor(Node S){
+        return null;
+    }
+
+    private Node Predecessor(Node P){
+        return null;
+    }
+
+    private Node TreeMinimum(Node S){
+        return null;
+    }
+
+    private Node TreeMaximum(Node S){
+        return null;
+    }
+
+    private void Transplant(){
+
+    }
 
 }
