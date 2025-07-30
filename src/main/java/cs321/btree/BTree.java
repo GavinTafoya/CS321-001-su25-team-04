@@ -167,7 +167,7 @@ public class BTree<T extends Comparable<T>> implements BTreeInterface
 
     /**
      * Deletes a key from the BTree. Not Implemented.
-     *
+     * We do not need this completed
      * @param key the key to be deleted
      */
     @Override
@@ -196,6 +196,14 @@ public class BTree<T extends Comparable<T>> implements BTreeInterface
     }
 
     private void Transplant(){
+
+    }
+
+    private void diskRead() {
+
+    }
+
+    private void diskWrite(){
 
     }
 
