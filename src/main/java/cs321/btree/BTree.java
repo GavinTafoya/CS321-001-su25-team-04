@@ -1,7 +1,10 @@
 package cs321.btree;
 
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 
 public class BTree<T extends Comparable<T>> implements BTreeInterface
 {
@@ -13,25 +16,26 @@ public class BTree<T extends Comparable<T>> implements BTreeInterface
      * Inner class to represent a binary search tree node.
      *
      */
-    private class Node<S extends Comparable<S>> implements Comparable<Node<S>> {
-        private Node<S> left,right,parent;
+    private class Node {
+        private long left,right,parent;
+        private long address;
         private boolean isLeaf;
-        private S key;
+        private TreeObject key;
 
         /**
          * Constructor for a node.
          * @param element
          */
-        public Node(S element) {
+        public Node(TreeObject element) {
             key = element;
-            left = right = parent = null;
+            left = right = parent = 0;
         }
 
 
         /**
          * {@inheritDoc}
          */
-        public int compareTo(Node<S> otherNode) {
+        public int compareTo(Node otherNode) {
             return key.compareTo(otherNode.key);
         }
 
@@ -49,7 +53,16 @@ public class BTree<T extends Comparable<T>> implements BTreeInterface
     // Variables
     //------------------------------------------------------------------
     private int size, height, degree;
-    private Node<T> root;
+    private Node root;
+    
+    //Disk Variables
+
+    private int METADATA_SIZE = Long.BYTES;
+    private long rootAddress = METADATA_SIZE;
+    private long nextDiskAddress = METADATA_SIZE;
+    private FileChannel file;
+    private ByteBuffer buffer;
+    
     //------------------------------------------------------------------
     // Constructor
     //------------------------------------------------------------------
@@ -199,12 +212,58 @@ public class BTree<T extends Comparable<T>> implements BTreeInterface
 
     }
 
-    private void diskRead() {
+    private Node diskRead(long diskAdress) throws IOException{
+    	if(diskAdress == 0) return null;
+    	
+    	file.position(diskAdress);
+    	buffer.clear();
+    	
+    	file.read(buffer);
+    	buffer.flip();
 
+    	long value = buffer.getLong();
+    	long frequency = buffer.getLong();
+    	
+    	TreeObject key = new TreeObject(value + " ", frequency);
+ 	
+    	byte flag = buffer.get();
+    	boolean leaf = false;
+    	if(flag == 1) {
+    		leaf = true;
+    	}
+    	
+    	long parent = buffer.getLong();
+    	long left = buffer.getLong();
+    	long right = buffer.getLong();
+    	
+    	Node x = new Node(key); 
+    	x.isLeaf = leaf;
+    	x.parent = parent;
+    	x.left = left;
+    	x.right = right;
+    	x.address = diskAdress;
+    	
+    	return x;
     }
 
-    private void diskWrite(){
-
+    private void diskWrite(Node x) throws IOException{
+    	file.position(x.address);
+    	buffer.clear();
+    	
+    	buffer.putLong(Long.parseLong(x.key.getKey()));
+    	if(x.isLeaf) {
+    		buffer.put((byte) 1);
+    	}
+    	else {
+    		buffer.put((byte) 0);
+    	}
+    	
+    	buffer.putLong(x.parent);
+    	buffer.putLong(x.left);
+    	buffer.putLong(x.right);
+    	
+    	buffer.flip();
+    	file.write(buffer);
     }
 
 }
