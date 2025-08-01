@@ -24,27 +24,28 @@ public class BTree<T extends Comparable<T>> implements BTreeInterface
 
         /**
          * Constructor for a node.
+         */
+        public Node() {
+            key = null;
+            left = right = parent = 0;
+            isLeaf = true;
+        }
+
+        /**
+         * Constructor for a node with a key.
          * @param element
          */
         public Node(TreeObject element) {
             key = element;
             left = right = parent = 0;
+            isLeaf = true;
         }
-
-
-        /**
-         * {@inheritDoc}
-         */
-        public int compareTo(Node otherNode) {
-            return key.compareTo(otherNode.key);
-        }
-
 
         /**
          * {@inheritDoc}
          */
         public String toString() {
-            return "Node:  key = " + key.toString();
+            return "Node:  key = " + (key != null ? key.toString() : "null");
         }
 
     }// end of Private Node Class
@@ -71,13 +72,18 @@ public class BTree<T extends Comparable<T>> implements BTreeInterface
      * Creates an empty BTree
      */
     public BTree(String name){
-        this.root  = null;
+        this.root  = new Node();
+        this.root.isLeaf = true;
         this.size = 0;
+        this.height = 0;
+        this.degree = 2; // default degree
     }
 
     public BTree(int degree, String name) {
-        this.root  = null;
+        this.root  = new Node();
+        this.root.isLeaf = true;
         this.size = 0;
+        this.height = 0;
         this.degree = degree;
     }
 
@@ -118,7 +124,10 @@ public class BTree<T extends Comparable<T>> implements BTreeInterface
      */
     @Override
     public long getNumberOfNodes() {
-        return 0;
+        if (root == null) {
+            return 0;
+        }
+        return 1; // For now, just the root node exists
     }
 
     /**
@@ -127,6 +136,11 @@ public class BTree<T extends Comparable<T>> implements BTreeInterface
     @Override
     public int getHeight() {
         return height; // This is wrong
+    }
+
+
+    public String[] getSortedKeyArray() {
+        return null;
     }
 
 
