@@ -25,22 +25,33 @@ public class BTree<T extends Comparable<T>> implements BTreeInterface
         public Node(S element) {
             key = element;
             left = right = parent = null;
+            isLeaf = false;
         }
 
+        /**
+         * Constructor for an empty node (used for root initialization)
+         */
+        public Node() {
+            key = null;
+            left = right = parent = null;
+            isLeaf = true;
+        }
 
         /**
          * {@inheritDoc}
          */
         public int compareTo(Node<S> otherNode) {
+            if (key == null && otherNode.key == null) return 0;
+            if (key == null) return -1;
+            if (otherNode.key == null) return 1;
             return key.compareTo(otherNode.key);
         }
-
 
         /**
          * {@inheritDoc}
          */
         public String toString() {
-            return "Node:  key = " + key.toString();
+            return "Node:  key = " + (key != null ? key.toString() : "null");
         }
 
     }// end of Private Node Class
@@ -58,13 +69,18 @@ public class BTree<T extends Comparable<T>> implements BTreeInterface
      * Creates an empty BTree
      */
     public BTree(String name){
-        this.root  = null;
+        this.root  = new Node<T>();
+        this.root.isLeaf = true;
         this.size = 0;
+        this.height = 0;
+        this.degree = 2; // default degree
     }
 
     public BTree(int degree, String name) {
-        this.root  = null;
+        this.root  = new Node<T>();
+        this.root.isLeaf = true;
         this.size = 0;
+        this.height = 0;
         this.degree = degree;
     }
 
@@ -105,7 +121,19 @@ public class BTree<T extends Comparable<T>> implements BTreeInterface
      */
     @Override
     public long getNumberOfNodes() {
-        return 0;
+        if (root == null) {
+            return 0;
+        }
+        return countNodes(root);
+    }
+    
+    private long countNodes(Node<T> node) {
+        if (node == null) {
+            return 0;
+        }
+        // For now, just return 1 since we only have the root
+        // This will need to be updated when the tree structure is properly implemented
+        return 1;
     }
 
     /**
@@ -153,6 +181,14 @@ public class BTree<T extends Comparable<T>> implements BTreeInterface
     @Override
     public void dumpToDatabase(String dbName, String tableName) throws IOException {
 
+    }
+
+    /**
+     *
+     * @return
+     */
+    public String[] getSortedKeyArray(){
+        return null;
     }
 
     /**
