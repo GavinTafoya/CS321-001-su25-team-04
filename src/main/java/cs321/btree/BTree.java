@@ -32,10 +32,13 @@ public class BTree implements BTreeInterface
     private void inOrder(Node node, ArrayList<String> output) {
         if (node == null) return;
         for (int i = 0; i < node.numKeys; i++) {
-            if (!node.isLeaf) inOrder(node.childPointers[i], output);
+        	Node tempNode = diskRead(node.childPointers[i]);
+            if (!node.isLeaf) inOrder(tempNode, output);
             output.add(node.keys[i].getKey());
         }
-        if (!node.isLeaf) inOrder(node.childPointers[node.numKeys], output);
+
+    	Node tempNode = diskRead(node.childPointers[node.numKeys]);
+        if (!node.isLeaf) inOrder(tempNode, output);
     }
     //------------------------------------------------------------------
     // Private Node Class
@@ -185,19 +188,22 @@ public class BTree implements BTreeInterface
                 return;
             }
             position = -position - 1;
+            
+            Node tempNode = diskRead(cursor.childPointers[position]);
+            
             if (cursor.isLeaf){
                 break;
             }
-            if (cursor.childPointers[position].numKeys == 2 * degree - 1) {
+            if (tempNode.numKeys == 2 * degree - 1) {
                 splitChild(cursor, position);
                 if (obj.compareTo(cursor.keys[position]) > 0) position++;
             }
-            cursor = cursor.childPointers[position];
+            cursor = tempNode;
         }
         if (root.numKeys == 2 * degree - 1) {
             Node newRoot = new Node();
             newRoot.isLeaf = false;
-            newRoot.childPointers[0] = root;
+            newRoot.childPointers[0] = root.address;
             splitChild(newRoot, 0);
             root = newRoot;
             height++;
@@ -225,13 +231,16 @@ public class BTree implements BTreeInterface
         }
         int position = Arrays.binarySearch(node.keys, 0, node.numKeys, key);
         position = -position - 1;
-        if (node.childPointers[position].numKeys == 2 * degree - 1) {
+        
+        Node tempNode = diskRead(node.childPointers[position]);
+        
+        if (tempNode.numKeys == 2 * degree - 1) {
             splitChild(node, position);
             if (key.compareTo(node.keys[position]) > 0){
                 position++;
             }
         }
-        insertInNodeWithSpace(node.childPointers[position], key);
+        insertInNodeWithSpace(tempNode, key);
     }
 
     /**
@@ -241,7 +250,7 @@ public class BTree implements BTreeInterface
      * @param childIndex index of the full child within parent.childPointers
      */
     private void splitChild(Node parent, int childIndex) {
-        Node fullChild  = parent.childPointers[childIndex];
+        Node fullChild  = diskRead(parent.childPointers[childIndex]);
         Node newSibling = new Node();
         newSibling.isLeaf  = fullChild.isLeaf;
         newSibling.numKeys = degree - 1;
@@ -251,7 +260,7 @@ public class BTree implements BTreeInterface
         }
         fullChild.numKeys = degree - 1;
         System.arraycopy(parent.childPointers, childIndex + 1, parent.childPointers,childIndex + 2, parent.numKeys - childIndex);
-        parent.childPointers[childIndex + 1] = newSibling;
+        parent.childPointers[childIndex + 1] = newSibling.address;
         System.arraycopy(parent.keys, childIndex, parent.keys,childIndex + 1, parent.numKeys - childIndex);
         parent.keys[childIndex] = fullChild.keys[degree - 1];
         parent.numKeys++;
@@ -327,16 +336,21 @@ public class BTree implements BTreeInterface
 
     }
 
-    private Node diskRead(long diskAddress) throws IOException {
+    private Node diskRead(long diskAddress) {
     	if(diskAddress == 0) {
     		return null;
     	}
     	
-    	file.position(diskAddress);
-    	buffer.clear();
-    	
-    	file.read(buffer);
-    	buffer.flip();
+    	try {
+			file.position(diskAddress);
+
+	    	buffer.clear();
+	    	
+	    	file.read(buffer);
+	    	buffer.flip();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
     	
     	Node tempNode = new Node();
     	
@@ -363,49 +377,54 @@ public class BTree implements BTreeInterface
     	return tempNode;
     }
 
-    private void diskWrite(Node x) throws IOException{
-    	file.position(x.address);
-    	buffer.clear();
-    	
-    	buffer.putInt(x.numKeys);
-    	
-    	for(int i = 0; i < (2 * degree) - 1; i++) {
-    		TreeObject key = x.keys[i];
-    		if(key == null) {
-    			for(int j = 0; j < (TreeObject.BYTES) / Long.BYTES; j++) {
-    				buffer.putLong(0);
-    				buffer.putLong(0);
-    			}
-    		}
-    		else {
-    			byte[] byteSet = key.getKey().getBytes();
-    			for(int j = 0; j < (TreeObject.BYTES - Long.BYTES) / Long.BYTES; j++) {
-    				buffer.putLong(byteSet[j]);
-    			}
-    			buffer.putLong(key.getCount());
-    		}
-    	}
-    	
-    	if (x.isLeaf) {
-            buffer.put((byte) 1);
-    	}
-        else {
-            buffer.put((byte) 0);
-        }
+    private void diskWrite(Node x){
+    	try {
+			file.position(x.address);
 
-    	buffer.putLong(x.parent);
-    	
-    	for(int i = 0; i < 2 * degree; i++) {
-    		if(x.childPointers[i] == 0) {
-    			buffer.putLong(0);
-    		}
-    		else {
-        		buffer.putLong(x.childPointers[i]);
-    		}
-    	}
-    	
-    	buffer.flip();
-    	file.write(buffer);
+	    	buffer.clear();
+	    	
+	    	buffer.putInt(x.numKeys);
+	    	
+	    	for(int i = 0; i < (2 * degree) - 1; i++) {
+	    		TreeObject key = x.keys[i];
+	    		if(key == null) {
+	    			for(int j = 0; j < (TreeObject.BYTES) / Long.BYTES; j++) {
+	    				buffer.putLong(0);
+	    				buffer.putLong(0);
+	    			}
+	    		}
+	    		else {
+	    			byte[] byteSet = key.getKey().getBytes();
+	    			for(int j = 0; j < (TreeObject.BYTES - Long.BYTES) / Long.BYTES; j++) {
+	    				buffer.putLong(byteSet[j]);
+	    			}
+	    			buffer.putLong(key.getCount());
+	    		}
+	    	}
+	    	
+	    	if (x.isLeaf) {
+	            buffer.put((byte) 1);
+	    	}
+	        else {
+	            buffer.put((byte) 0);
+	        }
+
+	    	buffer.putLong(x.parent);
+	    	
+	    	for(int i = 0; i < 2 * degree; i++) {
+	    		if(x.childPointers[i] == 0) {
+	    			buffer.putLong(0);
+	    		}
+	    		else {
+	        		buffer.putLong(x.childPointers[i]);
+	    		}
+	    	}
+	    	
+	    	buffer.flip();
+	    	file.write(buffer);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
     }
 
 }
