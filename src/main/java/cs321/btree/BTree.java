@@ -1,11 +1,14 @@
-package cs321.btree;
+package src.main.java.cs321.btree;
 
+import java.awt.RenderingHints.Key;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.Arrays;
 
-public class BTree<T extends Comparable<T>> implements BTreeInterface
+public class BTree implements BTreeInterface
 {
 
     /**
@@ -26,7 +29,7 @@ public class BTree<T extends Comparable<T>> implements BTreeInterface
      * @param node    the node to traverse
      * @param output  accumulator list that receives the keys encountered during traversal
      */
-    private void inOrder(Node<T> node, ArrayList<String> output) {
+    private void inOrder(Node node, ArrayList<String> output) {
         if (node == null) return;
         for (int i = 0; i < node.numKeys; i++) {
             if (!node.isLeaf) inOrder(node.childPointers[i], output);
@@ -42,43 +45,35 @@ public class BTree<T extends Comparable<T>> implements BTreeInterface
      * Inner class to represent a binary search tree node.
      *
      */
-    private class Node<S extends Comparable<S>> implements Comparable<Node<S>> {
-        private Node<S> left,right,parent;
-        private boolean isLeaf;
-        private S key;
-        int numKeys;
-        TreeObject[] keys;
-        Node<S>[] childPointers;
+    private class Node{
+        private long parent; //8 bytes
+        private long address; //8 bytes
+        private boolean isLeaf; //1 byte
+        private int numKeys; //4 bytes
+        private TreeObject[] keys; //64 + 8 bytes
+        private long[] childPointers;
 
         /**
          * Constructor for a node.
          * @param element
          */
-        public Node(S element) {
-            key = element;
-            left = right = parent = null;
+        public Node() {            
+            parent = 0;
             keys = new TreeObject[2 * degree - 1];
-            @SuppressWarnings("unchecked")
-            Node<S>[] kids = (Node<S>[]) new Node[2 * degree];
-            childPointers = kids;
+            childPointers = new long[2 * degree];
             numKeys = 0;
             isLeaf  = true;
         }
-
-
-        /**
-         * {@inheritDoc}
-         */
-        public int compareTo(Node<S> otherNode) {
-            return key.compareTo(otherNode.key);
-        }
-
 
         /**
          * {@inheritDoc}
          */
         public String toString() {
-            return "Node:  key = " + key.toString();
+        	String string = "Node:  keys = ";
+        	for(TreeObject key : keys) {
+        		string += key.toString() + "  ";
+        	}
+            return string;
         }
 
     }// end of Private Node Class
@@ -87,7 +82,16 @@ public class BTree<T extends Comparable<T>> implements BTreeInterface
     // Variables
     //------------------------------------------------------------------
     private int size, height, degree;
-    private Node<T> root;
+    private int METADATA_SIZE = Long.BYTES;
+    private long nextDiskAddress = METADATA_SIZE;
+    private FileChannel file;
+    private ByteBuffer buffer;
+    private int nodeSize;
+
+    private long rootAddress = METADATA_SIZE;
+    private Node root;
+    
+    
     //------------------------------------------------------------------
     // Constructor
     //------------------------------------------------------------------
@@ -97,7 +101,7 @@ public class BTree<T extends Comparable<T>> implements BTreeInterface
      */
     public BTree(String name){
         this.degree = 2;
-        this.root  = new Node<>(null);
+        this.root  = new Node();
         this.size = 0;
         this.height = 0;
     }
@@ -166,14 +170,14 @@ public class BTree<T extends Comparable<T>> implements BTreeInterface
     @Override
     public void insert(TreeObject obj) throws IOException {
         if (root == null) {
-            root = new Node<>(null);
+            root = new Node();
             root.keys[0] = obj;
             root.numKeys = 1;
             size = 1;
             height = 0;
             return;
         }
-        Node<T> cursor = root;
+        Node cursor = root;
         while (true) {
             int position = Arrays.binarySearch(cursor.keys,0, cursor.numKeys, obj);
             if (position >= 0) {
@@ -191,7 +195,7 @@ public class BTree<T extends Comparable<T>> implements BTreeInterface
             cursor = cursor.childPointers[position];
         }
         if (root.numKeys == 2 * degree - 1) {
-            Node<T> newRoot = new Node<>(null);
+            Node newRoot = new Node();
             newRoot.isLeaf = false;
             newRoot.childPointers[0] = root;
             splitChild(newRoot, 0);
@@ -210,7 +214,7 @@ public class BTree<T extends Comparable<T>> implements BTreeInterface
      * @param node the B-tree node that currently has fewer than 2t-1
      * @param key  the  to insert
      */
-    private void insertInNodeWithSpace(Node<T> node, TreeObject key) {
+    private void insertInNodeWithSpace(Node node, TreeObject key) {
         if (node.isLeaf) {
             int position = Arrays.binarySearch(node.keys, 0, node.numKeys, key);
             position = -position - 1;
@@ -236,9 +240,9 @@ public class BTree<T extends Comparable<T>> implements BTreeInterface
      * @param parent the node whose child is being split
      * @param childIndex index of the full child within parent.childPointers
      */
-    private void splitChild(Node<T> parent, int childIndex) {
-        Node<T> fullChild  = parent.childPointers[childIndex];
-        Node<T> newSibling = new Node<>(null);
+    private void splitChild(Node parent, int childIndex) {
+        Node fullChild  = parent.childPointers[childIndex];
+        Node newSibling = new Node();
         newSibling.isLeaf  = fullChild.isLeaf;
         newSibling.numKeys = degree - 1;
         System.arraycopy(fullChild.keys, degree, newSibling.keys, 0, degree - 1);
@@ -323,12 +327,85 @@ public class BTree<T extends Comparable<T>> implements BTreeInterface
 
     }
 
-    private void diskRead() {
-
+    private Node diskRead(long diskAddress) throws IOException {
+    	if(diskAddress == 0) {
+    		return null;
+    	}
+    	
+    	file.position(diskAddress);
+    	buffer.clear();
+    	
+    	file.read(buffer);
+    	buffer.flip();
+    	
+    	Node tempNode = new Node();
+    	
+    	tempNode.numKeys = buffer.getInt();
+    	
+    	for(int i = 0; i < (2 * degree) - 1; i++) {
+    		String string = "";
+    		for(int j = 0; j < (TreeObject.BYTES - Long.BYTES) / Long.BYTES; j++) {
+				string += (char) buffer.getLong();
+			}
+    		tempNode.keys[i] = new TreeObject(string, buffer.getLong());
+    	}
+    	
+    	tempNode.isLeaf = buffer.get() == 1;
+    	
+    	tempNode.parent = buffer.getLong();
+    	
+    	for(int i = 0; i < 2 * degree; i++) {
+    		tempNode.childPointers[i] = buffer.getLong();
+    	}
+    	
+    	tempNode.address = diskAddress;
+    	
+    	return tempNode;
     }
 
-    private void diskWrite(){
+    private void diskWrite(Node x) throws IOException{
+    	file.position(x.address);
+    	buffer.clear();
+    	
+    	buffer.putInt(x.numKeys);
+    	
+    	for(int i = 0; i < (2 * degree) - 1; i++) {
+    		TreeObject key = x.keys[i];
+    		if(key == null) {
+    			for(int j = 0; j < (TreeObject.BYTES) / Long.BYTES; j++) {
+    				buffer.putLong(0);
+    				buffer.putLong(0);
+    			}
+    		}
+    		else {
+    			byte[] byteSet = key.getKey().getBytes();
+    			for(int j = 0; j < (TreeObject.BYTES - Long.BYTES) / Long.BYTES; j++) {
+    				buffer.putLong(byteSet[j]);
+    			}
+    			buffer.putLong(key.getCount());
+    		}
+    	}
+    	
+    	if (x.isLeaf) {
+            buffer.put((byte) 1);
+    	}
+        else {
+            buffer.put((byte) 0);
+        }
 
+    	buffer.putLong(x.parent);
+    	
+    	for(int i = 0; i < 2 * degree; i++) {
+    		if(x.childPointers[i] == 0) {
+    			buffer.putLong(0);
+    		}
+    		else {
+        		buffer.putLong(x.childPointers[i]);
+    		}
+    	}
+    	
+    	buffer.flip();
+    	file.write(buffer);
     }
 
 }
