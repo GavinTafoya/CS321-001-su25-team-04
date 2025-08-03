@@ -9,35 +9,6 @@ import java.util.Arrays;
 
 public class BTree implements BTreeInterface {
 
-    /**
-     * Returns all keys currently stored in the B-tree in a increasing order
-     *
-     * @return a non-null array of keys in sorted order and the array is empty if the tree has no keys
-     */
-    public String[] getSortedKeyArray() {
-        ArrayList<String> out = new ArrayList<>();
-        inOrder(root, out);
-        return out.toArray(new String[0]);
-    }
-
-
-    /**
-     * Performs a traversal in order starting at node and appends each keys String value to output
-     *
-     * @param node    the node to traverse
-     * @param output  accumulator list that receives the keys encountered during traversal
-     */
-    private void inOrder(Node node, ArrayList<String> output) {
-        if (node == null) return;
-        for (int i = 0; i < node.numKeys; i++) {
-            Node tempNode = diskRead(node.childPointers[i]);
-            if (!node.isLeaf) inOrder(tempNode, output);
-            output.add(node.keys[i].getKey());
-        }
-
-        Node tempNode = diskRead(node.childPointers[node.numKeys]);
-        if (!node.isLeaf) inOrder(tempNode, output);
-    }
     //------------------------------------------------------------------
     // Private Node Class
     //------------------------------------------------------------------
@@ -125,60 +96,53 @@ public class BTree implements BTreeInterface {
      *
      * Write the Exception in the BTreeException Class
      */
+
+
     //------------------------------------------------------------------
     // Methods
     //------------------------------------------------------------------
 
     /**
+     * This is the total size of the BTree
      * @return Returns the number of keys in the BTree.
      */
     @Override
-    public long getSize() {
-        return size;
-    }
+    public long getSize() {return size;}
 
     /**
+     * Here is the degree
      * @return The degree of the BTree.
      */
     @Override
-    public int getDegree() {
-        return degree;
-    }
+    public int getDegree() {return degree;}
 
     /**
+     * This calls a recursive helper function to calculate the number of nodes from the root
      * @return Returns the number of nodes in the BTree.
      */
     @Override
-    public long getNumberOfNodes() {
-        return countNodes(root);
-    }
+    public long getNumberOfNodes() {return countNodes(root);}
 
     /**
-     * Counts all the nodes in the B tree starting from the given node
-     * and checks all the child nodes then adds them to the count
-     *
-     * @param node the node to start the counting from
-     * @return the number of nodes in the subtree
-     */
-    private long countNodes(Node node) {
-        if (node == null) {
-            return 0;
-        }
-        long count = 1;
-        for (int i = 0; i <= node.numKeys; i++) {
-            Node child = diskRead(node.childPointers[i]);
-            count += countNodes(child);
-        }
-        return count;
-    }
-
-    /**
+     * Calls a recursive helper function to calculate the height of the tree
      * @return The height of the BTree
      */
     @Override
     public int getHeight() {
-        return height; // This is wrong
+        return calculateHeight(root);
     }
+
+    /**
+     * Returns all keys currently stored in the B-tree in a increasing order
+     *
+     * @return a non-null array of keys in sorted order and the array is empty if the tree has no keys
+     */
+    public String[] getSortedKeyArray() {
+        ArrayList<String> out = new ArrayList<>();
+        inOrder(root, out);
+        return out.toArray(new String[0]);
+    }
+
 
     /**
      * Insert a given SSH key into the B-Tree. If the key already exists in the B-Tree,
@@ -189,107 +153,28 @@ public class BTree implements BTreeInterface {
      */
     @Override
     public void insert(TreeObject obj) throws IOException {
-        if (root == null) {
-            root = new Node();
+        // If the root is empty, set the object to be inserted to be the root
+        if (root.numKeys == 0) {
             root.keys[0] = obj;
             root.numKeys = 1;
             root.isLeaf = true;
             size = 1;
-            height = 0;
-            return;
+            return; // Exit
         }
-        Node cursor = root;
-        while (true) {
-            int position = Arrays.binarySearch(cursor.keys,0, cursor.numKeys, obj);
-            if (position >= 0) {
-                cursor.keys[position].incCount();
-                return;
-            }
-            position = -position - 1;
-
-            Node tempNode = diskRead(cursor.childPointers[position]);
-
-            if (cursor.isLeaf){
-                break;
-            }
-            Node child = cursor.children[position];
-            if (child == null) {
-                child = new Node();
-                cursor.children[position] = child;
-            }
-            if (tempNode.numKeys == 2 * degree - 1) {
-                splitChild(cursor, position);
-                if (obj.compareTo(cursor.keys[position]) > 0){
-                    position++;
-                }
-            }
-            cursor = tempNode;
-        }
+        
+        // If root is full, split it by number of degrees first to allow a non-full insertion
         if (root.numKeys == 2 * degree - 1) {
             Node newRoot = new Node();
-            newRoot.isLeaf = false;
-            newRoot.childPointers[0] = root.address;
+            newRoot.isLeaf = false; // We have to set the newRoot.isLeaf to be false so it can have children for insertion
+            newRoot.children[0] = root;
             splitChild(newRoot, 0);
             root = newRoot;
-            height++;
-            insertInNodeWithSpace(root, obj);
-        } else {
-            insertInNodeWithSpace(cursor, obj);
         }
+        
+        insertNonFull(root, obj);
         size++;
     }
 
-    /**
-     * Inserts key into the node with space
-     *
-     * @param node the B-tree node that currently has fewer than 2t-1
-     * @param key  the  to insert
-     */
-    private void insertInNodeWithSpace(Node node, TreeObject key) {
-        if (node.isLeaf) {
-            int position = Arrays.binarySearch(node.keys, 0, node.numKeys, key);
-            position = -position - 1;
-            System.arraycopy(node.keys, position, node.keys, position + 1, node.numKeys - position);
-            node.keys[position] = key;
-            node.numKeys++;
-            return;
-        }
-        int position = Arrays.binarySearch(node.keys, 0, node.numKeys, key);
-        position = -position - 1;
-
-        Node tempNode = diskRead(node.childPointers[position]);
-
-        if (tempNode.numKeys == 2 * degree - 1) {
-            splitChild(node, position);
-            if (key.compareTo(node.keys[position]) > 0){
-                position++;
-            }
-        }
-        insertInNodeWithSpace(tempNode, key);
-    }
-
-    /**
-     * Splits the full child at parent.childPointers[childIndex] and promotes the median key in the parent
-     *
-     * @param parent the node whose child is being split
-     * @param childIndex index of the full child within parent.childPointers
-     */
-    private void splitChild(Node parent, int childIndex) {
-        Node fullChild  = diskRead(parent.childPointers[childIndex]);
-        Node newSibling = new Node();
-        newSibling.isLeaf  = fullChild.isLeaf;
-        newSibling.numKeys = degree - 1;
-        System.arraycopy(fullChild.keys, degree, newSibling.keys, 0, degree - 1);
-        if (!fullChild.isLeaf) {
-            System.arraycopy(fullChild.childPointers, degree, newSibling.childPointers, 0, degree);
-        }
-        fullChild.numKeys = degree - 1;
-        System.arraycopy(parent.childPointers, childIndex + 1, parent.childPointers,childIndex + 2, parent.numKeys - childIndex);
-        parent.childPointers[childIndex + 1] = newSibling.address;
-        System.arraycopy(parent.keys, childIndex, parent.keys,childIndex + 1, parent.numKeys - childIndex);
-        parent.keys[childIndex] = fullChild.keys[degree - 1];
-        parent.numKeys++;
-    }
 
     /**
      * Print out all objects in the given BTree in an inorder traversal to a file.
@@ -324,8 +209,23 @@ public class BTree implements BTreeInterface {
      */
     @Override
     public TreeObject search(String key) throws IOException {
-        return null;
-    }
+        Node currentNode = root;
+        while (currentNode != null) {
+            int position = Arrays.binarySearch(currentNode.keys, 0, currentNode.numKeys, key);
+            if (position >= 0) {
+                return currentNode.keys[position]; // Key found, return the TreeObject
+            }
+            position = -position - 1; // Get the insertion point
+            if (currentNode.isLeaf) {
+                break; // Key not found in a leaf node
+            }
+            // Move to the appropriate child pointer
+            long childAddress = currentNode.childPointers[position];
+            currentNode = diskRead(childAddress);
+        }
+
+        return null; // Key not found
+   }
 
     /**
      * Deletes a key from the BTree. Not Implemented.
@@ -342,24 +242,237 @@ public class BTree implements BTreeInterface {
     //------------------------------------------------------------------
 
     private Node Successor(Node S){
-        return null;
+        if (S.isLeaf) {
+            return null; // No successor for leaf nodes
+        }
+        // Traverse to the leftmost child of the right subtree
+        Node current = diskRead(S.childPointers[0]);
+        while (!current.isLeaf) {
+            current = diskRead(current.childPointers[0]);
+        }
+        return current;
     }
 
     private Node Predecessor(Node P){
-        return null;
+        if (P.isLeaf) {
+            return null; // No predecessor for leaf nodes
+        }
+        // Traverse to the rightmost child of the left subtree
+        Node current = diskRead(P.childPointers[P.numKeys]);
+        while (!current.isLeaf) {
+            current = diskRead(current.childPointers[current.numKeys]);
+        }
+        return current;
     }
 
     private Node TreeMinimum(Node S){
-        return null;
+        if (S.isLeaf) {
+            return S;
+        }
+        // Traverse to the leftmost child
+        Node current = diskRead(S.childPointers[0]);
+        while (!current.isLeaf) {
+            current = diskRead(current.childPointers[0]);
+        }
+        return current;
     }
 
     private Node TreeMaximum(Node S){
-        return null;
+        if (S.isLeaf) {
+            return S;
+        }
+        // Traverse to the rightmost child
+        Node current = diskRead(S.childPointers[S.numKeys]);
+        while (!current.isLeaf) {
+            current = diskRead(current.childPointers[current.numKeys]);
+        }
+        return current;
     }
 
-    private void Transplant(){
-
+    private void Transplant(Node u, Node v){
+        throw new UnsupportedOperationException("Transplant method is not implemented yet.");
     }
+
+    /**
+     * This is a recursive method that finds the height of the BTree
+     * @param node
+     * @return maxHeight + 1
+     */
+    private int calculateHeight(Node node){
+        if (node == null) {return 0;}
+        
+        // If the node is a leaf with no keys, height is 0 (empty tree)
+        if (node.isLeaf && node.numKeys == 0) {return 0;}
+        
+        // If the node is a leaf with keys, height is 0 (single level)
+        if (node.isLeaf) {return 0;}
+        
+        // For internal nodes, follow the first child and add 1
+        Node firstChild = node.children[0];
+        return calculateHeight(firstChild) + 1;
+    }
+
+    /**
+     * Counts all the nodes in the B tree starting from the given node
+     * and checks all the child nodes then adds them to the count
+     *
+     * @param node the node to start the counting from
+     * @return the number of nodes in the subtree
+     */
+    private long countNodes(Node node) {
+        if (node == null) {
+            return 0;
+        }
+        long count = 1;
+        if (!node.isLeaf) {
+            for (int i = 0; i <= node.numKeys; i++) {
+                Node child = node.children[i];
+                count += countNodes(child);
+            }
+        }
+        return count;
+    }
+
+
+    /**
+     * Inserts key into a non-full node
+     *
+     * @param node the B-tree node that currently has fewer than 2t-1 keys
+     * @param key  the key to insert
+     */
+    private void insertNonFull(Node node, TreeObject key) {
+        int i = node.numKeys - 1;
+
+        if (node.isLeaf) {
+            // Find position and insert key
+            while (i >= 0 && key.compareTo(node.keys[i]) < 0) {
+                node.keys[i + 1] = node.keys[i];
+                i--;
+            }
+
+            // Check for duplicate
+            if (i >= 0 && key.compareTo(node.keys[i]) == 0) {
+                node.keys[i].incCount();
+                size--; // Don't count duplicates toward size
+                return;
+            }
+
+            node.keys[i + 1] = key;
+            node.numKeys++;
+        } else {
+            // Find child to insert into
+            while (i >= 0 && key.compareTo(node.keys[i]) < 0) {
+                i--;
+            }
+
+            // Check for duplicate in current node
+            if (i >= 0 && key.compareTo(node.keys[i]) == 0) {
+                node.keys[i].incCount();
+                size--; // Don't count duplicates toward size
+                return;
+            }
+
+            i++; // Move to correct child index
+
+            // Create child if it doesn't exist
+            if (node.children[i] == null) {
+                node.children[i] = new Node();
+            }
+
+            // Check if child is full
+            if (node.children[i].numKeys == 2 * degree - 1) {
+                splitChild(node, i);
+                if (key.compareTo(node.keys[i]) > 0) {
+                    i++;
+                }
+            }
+
+            insertNonFull(node.children[i], key);
+        }
+    }
+
+    /**
+     * Inserts key into the node with space
+     *
+     * @param node the B-tree node that currently has fewer than 2t-1
+     * @param key  the  to insert
+     */
+    private void insertInNodeWithSpace(Node node, TreeObject key) {
+        if (node.isLeaf) {
+            int position = Arrays.binarySearch(node.keys, 0, node.numKeys, key);
+            position = -position - 1;
+            System.arraycopy(node.keys, position, node.keys, position + 1, node.numKeys - position);
+            node.keys[position] = key;
+            node.numKeys++;
+            return;
+        }
+        int position = Arrays.binarySearch(node.keys, 0, node.numKeys, key);
+        position = -position - 1;
+
+        Node tempNode = diskRead(node.childPointers[position]);
+
+        if (tempNode.numKeys == 2 * degree - 1) {
+            splitChild(node, position);
+            if (key.compareTo(node.keys[position]) > 0){
+                position++;
+            }
+        }
+        insertInNodeWithSpace(tempNode, key);
+    }
+
+    /**
+     * Splits the full child at parent.children[childIndex] and promotes the median key in the parent
+     *
+     * @param parent the node whose child is being split
+     * @param childIndex index of the full child within parent.children
+     */
+    private void splitChild(Node parent, int childIndex) {
+        Node fullChild = parent.children[childIndex];
+        Node newSibling = new Node();
+
+        newSibling.isLeaf = fullChild.isLeaf;
+        newSibling.numKeys = degree - 1;
+
+        // Copy the larger half of keys to new sibling
+        System.arraycopy(fullChild.keys, degree, newSibling.keys, 0, degree - 1);
+
+        // Copy children if not a leaf
+        if (!fullChild.isLeaf) {
+            System.arraycopy(fullChild.children, degree, newSibling.children, 0, degree);
+        }
+
+        // Reduce the number of keys in full child
+        fullChild.numKeys = degree - 1;
+
+        // Make space for new child pointer in parent
+        System.arraycopy(parent.children, childIndex + 1, parent.children, childIndex + 2, parent.numKeys - childIndex);
+        parent.children[childIndex + 1] = newSibling;
+
+        // Make space for new key in parent
+        System.arraycopy(parent.keys, childIndex, parent.keys, childIndex + 1, parent.numKeys - childIndex);
+        parent.keys[childIndex] = fullChild.keys[degree - 1];
+        parent.numKeys++;
+
+        // Clear the promoted key from the full child
+        fullChild.keys[degree - 1] = null;
+    }
+
+    /**
+     * Performs a traversal in order starting at node and appends each keys String value to output
+     *
+     * @param node    the node to traverse
+     * @param output  accumulator list that receives the keys encountered during traversal
+     */
+    private void inOrder(Node node, ArrayList<String> output) {
+        if (node == null) return;
+        for (int i = 0; i < node.numKeys; i++) {
+            if (!node.isLeaf) inOrder(node.children[i], output);
+            output.add(node.keys[i].getKey());
+        }
+
+        if (!node.isLeaf) inOrder(node.children[node.numKeys], output);
+    }
+
 
     private Node diskRead(long diskAddress) {
         if(diskAddress == 0) {
