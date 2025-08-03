@@ -170,8 +170,8 @@ public class BTree implements BTreeInterface {
             splitChild(newRoot, 0);
             root = newRoot;
         }
-        
-        insertNonFull(root, obj);
+
+        insertInNodeWithSpace(root, obj);
         size++;
     }
 
@@ -335,90 +335,61 @@ public class BTree implements BTreeInterface {
 
 
     /**
-     * Inserts key into a non-full node
-     *
-     * @param node the B-tree node that currently has fewer than 2t-1 keys
-     * @param key  the key to insert
-     */
-    private void insertNonFull(Node node, TreeObject key) {
-        int i = node.numKeys - 1;
-
-        if (node.isLeaf) {
-            // Find position and insert key
-            while (i >= 0 && key.compareTo(node.keys[i]) < 0) {
-                node.keys[i + 1] = node.keys[i];
-                i--;
-            }
-
-            // Check for duplicate
-            if (i >= 0 && key.compareTo(node.keys[i]) == 0) {
-                node.keys[i].incCount();
-                size--; // Don't count duplicates toward size
-                return;
-            }
-
-            node.keys[i + 1] = key;
-            node.numKeys++;
-        } else {
-            // Find child to insert into
-            while (i >= 0 && key.compareTo(node.keys[i]) < 0) {
-                i--;
-            }
-
-            // Check for duplicate in current node
-            if (i >= 0 && key.compareTo(node.keys[i]) == 0) {
-                node.keys[i].incCount();
-                size--; // Don't count duplicates toward size
-                return;
-            }
-
-            i++; // Move to correct child index
-
-            // Create child if it doesn't exist
-            if (node.children[i] == null) {
-                node.children[i] = new Node();
-            }
-
-            // Check if child is full
-            if (node.children[i].numKeys == 2 * degree - 1) {
-                splitChild(node, i);
-                if (key.compareTo(node.keys[i]) > 0) {
-                    i++;
-                }
-            }
-
-            insertNonFull(node.children[i], key);
-        }
-    }
-
-    /**
      * Inserts key into the node with space
      *
      * @param node the B-tree node that currently has fewer than 2t-1
      * @param key  the  to insert
      */
-    private void insertInNodeWithSpace(Node node, TreeObject key) {
-        if (node.isLeaf) {
-            int position = Arrays.binarySearch(node.keys, 0, node.numKeys, key);
-            position = -position - 1;
-            System.arraycopy(node.keys, position, node.keys, position + 1, node.numKeys - position);
-            node.keys[position] = key;
-            node.numKeys++;
-            return;
-        }
-        int position = Arrays.binarySearch(node.keys, 0, node.numKeys, key);
-        position = -position - 1;
+        private void insertInNodeWithSpace(Node node, TreeObject key) {
+            int i = node.numKeys - 1;
 
-        Node tempNode = diskRead(node.childPointers[position]);
+            if (node.isLeaf) {
+                // Find position and insert key
+                while (i >= 0 && key.compareTo(node.keys[i]) < 0) {
+                    node.keys[i + 1] = node.keys[i];
+                    i--;
+                }
 
-        if (tempNode.numKeys == 2 * degree - 1) {
-            splitChild(node, position);
-            if (key.compareTo(node.keys[position]) > 0){
-                position++;
+                // Check for duplicate
+                if (i >= 0 && key.compareTo(node.keys[i]) == 0) {
+                    node.keys[i].incCount();
+                    size--; // Don't count duplicates toward size
+                    return;
+                }
+
+                node.keys[i + 1] = key;
+                node.numKeys++;
+            } else {
+                // Find child to insert into
+                while (i >= 0 && key.compareTo(node.keys[i]) < 0) {
+                    i--;
+                }
+
+                // Check for duplicate in current node
+                if (i >= 0 && key.compareTo(node.keys[i]) == 0) {
+                    node.keys[i].incCount();
+                    size--; // Don't count duplicates toward size
+                    return;
+                }
+
+                i++; // Move to correct child index
+
+                // Create child if it doesn't exist
+                if (node.children[i] == null) {
+                    node.children[i] = new Node();
+                }
+
+                // Check if child is full
+                if (node.children[i].numKeys == 2 * degree - 1) {
+                    splitChild(node, i);
+                    if (key.compareTo(node.keys[i]) > 0) {
+                        i++;
+                    }
+                }
+
+                insertInNodeWithSpace(node.children[i], key);
             }
         }
-        insertInNodeWithSpace(tempNode, key);
-    }
 
     /**
      * Splits the full child at parent.children[childIndex] and promotes the median key in the parent
