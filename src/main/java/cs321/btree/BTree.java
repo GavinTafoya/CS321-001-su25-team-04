@@ -7,6 +7,11 @@ import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -220,14 +225,43 @@ public class BTree implements BTreeInterface {
     }
 
 
-    /**
+        /**
      * Print out all objects in the given BTree in an inorder traversal to a file.
      *
-     * @param out PrintWriter object representing output.
+     * @param printWriter PrintWriter Object for handling output to a file.
      */
     @Override
-    public void dumpToFile(PrintWriter out) throws IOException {
+    public void dumpToFile(PrintWriter printWriter) {
+        if (root == null) {
+            return;
+        }
+        dumpInOrder(root, printWriter);
+    }
 
+    /**
+     * Helper method to perform in-order traversal and dump keys with frequencies to file.
+     *
+     * @param node        the current node to traverse
+     * @param printWriter the PrintWriter to write to
+     */
+    private void dumpInOrder(Node node, PrintWriter printWriter) {
+        if (node == null) return;
+        
+        for (int i = 0; i < node.numKeys; i++) {
+            // Visit left child if not a leaf
+            if (!node.isLeaf) {
+                dumpInOrder(diskRead(node.childPointers[i]), printWriter);
+            }
+            
+            // Process current key
+            TreeObject treeObj = node.keys[i];
+            printWriter.println(treeObj.getKey() + ": " + treeObj.getCount());
+        }
+        
+        // Visit rightmost child if not a leaf
+        if (!node.isLeaf) {
+            dumpInOrder(diskRead(node.childPointers[node.numKeys]), printWriter);
+        }
     }
 
     /**
@@ -243,7 +277,62 @@ public class BTree implements BTreeInterface {
      */
     @Override
     public void dumpToDatabase(String dbName, String tableName) throws IOException {
+        if (root == null) {
+            return;
+        }
 
+        String url = "jdbc:sqlite:" + dbName;
+        
+        try (Connection conn = DriverManager.getConnection(url)) {
+            // Create table (replacing if it exists)
+            String createTableSQL = "DROP TABLE IF EXISTS " + tableName + "; " +
+                                  "CREATE TABLE " + tableName + " (" +
+                                  "key TEXT NOT NULL, " +
+                                  "frequency INTEGER NOT NULL" +
+                                  ");";
+            
+            try (Statement stmt = conn.createStatement()) {
+                stmt.executeUpdate(createTableSQL);
+            }
+            
+            // Insert data using in-order traversal
+            String insertSQL = "INSERT INTO " + tableName + " (key, frequency) VALUES (?, ?)";
+            try (PreparedStatement pstmt = conn.prepareStatement(insertSQL)) {
+                dumpInOrderToDatabase(root, pstmt);
+            }
+            
+        } catch (SQLException e) {
+            throw new IOException("Database error: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Helper method to perform in-order traversal and dump keys with frequencies to database.
+     *
+     * @param node  the current node to traverse
+     * @param pstmt the PreparedStatement for database insertion
+     * @throws SQLException if database operation fails
+     */
+    private void dumpInOrderToDatabase(Node node, PreparedStatement pstmt) throws SQLException {
+        if (node == null) return;
+        
+        for (int i = 0; i < node.numKeys; i++) {
+            // Visit left child if not a leaf
+            if (!node.isLeaf) {
+                dumpInOrderToDatabase(diskRead(node.childPointers[i]), pstmt);
+            }
+            
+            // Process current key
+            TreeObject treeObj = node.keys[i];
+            pstmt.setString(1, treeObj.getKey());
+            pstmt.setLong(2, treeObj.getCount());
+            pstmt.executeUpdate();
+        }
+        
+        // Visit rightmost child if not a leaf
+        if (!node.isLeaf) {
+            dumpInOrderToDatabase(diskRead(node.childPointers[node.numKeys]), pstmt);
+        }
     }
 
     /**

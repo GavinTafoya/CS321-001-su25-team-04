@@ -38,30 +38,6 @@ public class SSHCreateBTreeArguments
         this.debugLevel = debugLevel;
     }
 
-    //getter methods
-    public boolean isUseCache() {
-        return useCache;
-    }
-
-    public int getDegree() {
-        return degree;
-    }
-
-    public String getSSHFileName() {
-        return SSHFileName;
-    }
-
-    public String getTreeType() {
-        return treeType;
-    }
-
-    public int getCacheSize() {
-        return cacheSize;
-    }
-
-    public int getDebugLevel() {
-        return debugLevel;
-    }
 
     @Override
     public String toString()
