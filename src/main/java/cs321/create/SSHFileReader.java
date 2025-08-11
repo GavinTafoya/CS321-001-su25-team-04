@@ -44,12 +44,19 @@ public class SSHFileReader {
                     while (scanner.hasNextLine()) {
                         String line = scanner.nextLine();
                         // Extract the IP address
-                        if(!treeType[0].equals("user")){
-                            if(line.contains(treeType[0])){
-                                entries.add(keyStart + line.split(" ")[0]);
-                            }
-                        } else {
+                        if(treeType[0].equals("user")){
                             entries.add(line.split(" ")[3] + "-" + line.split(" ")[4]);
+                            
+                        } 
+                        else if (treeType[0].equals("reverseaddress")) {
+                            if(line.contains("reverse") || line.contains("Address")){
+                                entries.add(keyStart + line.split(" ")[4]);
+                            }
+                        }
+                        else {
+                            if(line.contains(treeType[0].toUpperCase())){
+                                entries.add(keyStart + line.split(" ")[4]);
+                            }
                         }
                     }
                     break;
@@ -58,7 +65,7 @@ public class SSHFileReader {
                     while (scanner.hasNextLine()) {
                         String line = scanner.nextLine();
                         // Extract the time
-                        if(line.contains(treeType[0])){
+                        if(line.contains(treeType[0].toUpperCase())){
                             entries.add(keyStart + line.split(" ")[1]);
                         }
                     }

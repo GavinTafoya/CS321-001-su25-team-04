@@ -1,0 +1,43 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Current File",
+            "request": "launch",
+            "mainClass": "${file}"
+        },
+        {
+            "type": "java",
+            "name": "SSHCreateBTree",
+            "request": "launch",
+            "mainClass": "cs321.create.SSHCreateBTree",
+            "projectName": "CS321_Cybersecurity-CS321-001-su25-team-04",
+            "args": "--cache=1 --degree=5 --sshFile=./ssh.log --type=btree [--cache-size=100] --database=yes [--debug=0]"
+        },
+        {
+            "type": "java",
+            "name": "SSHDataWrangler",
+            "request": "launch",
+            "mainClass": "cs321.create.SSHDataWrangler",
+            "projectName": "CS321_Cybersecurity-CS321-001-su25-team-04"
+        },
+        {
+            "type": "java",
+            "name": "SSHSearchBTree",
+            "request": "launch",
+            "mainClass": "cs321.search.SSHSearchBTree",
+            "projectName": "CS321_Cybersecurity-CS321-001-su25-team-04"
+        },
+        {
+            "type": "java",
+            "name": "SSHSearchDatabase",
+            "request": "launch",
+            "mainClass": "cs321.search.SSHSearchDatabase",
+            "projectName": "CS321_Cybersecurity-CS321-001-su25-team-04"
+        }
+    ]
+}
