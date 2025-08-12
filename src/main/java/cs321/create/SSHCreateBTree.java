@@ -21,7 +21,7 @@ public class SSHCreateBTree {
 	{
 		System.out.println("Hello world from cs321.create.SSHCreateBTree.main");
         SSHCreateBTreeArguments myArgs = parseArguments(args);
-        // other code    
+        // other code
 	}
 
 
