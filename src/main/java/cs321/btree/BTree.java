@@ -100,6 +100,9 @@ public class BTree implements BTreeInterface {
 
     public BTree(int degree, String name) {
         this.degree = degree;
+        if (degree < 2) {
+            throw new IllegalArgumentException("Degree must be at least 2 (or 0 for default).");
+        }
         this.size = 0;
         this.height = 0;
 
