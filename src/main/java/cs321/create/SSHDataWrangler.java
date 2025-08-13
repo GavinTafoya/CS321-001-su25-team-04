@@ -35,6 +35,12 @@ public class SSHDataWrangler {
         if (!ssh.exists()) {
             ssh.createNewFile();
         }
+        else{
+            ssh.delete();
+            ssh.createNewFile();
+        }
+        
+        ssh.deleteOnExit();
 
         Scanner scanner = new Scanner(rawSSH);
         FileWriter writer = new FileWriter(ssh);
