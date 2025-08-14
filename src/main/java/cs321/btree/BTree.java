@@ -86,7 +86,7 @@ public class BTree implements BTreeInterface {
     private long size;
     private int height;
     private int degree;
-    private int METADATA_SIZE = Long.BYTES;
+    private int METADATA_SIZE = 2 * Long.BYTES; // rootAddress + size
     private long nextDiskAddress;
     private FileChannel file;
     private ByteBuffer buffer;
@@ -260,6 +260,7 @@ public class BTree implements BTreeInterface {
         boolean insertedNew = insertNonFull(root, obj);
         if (insertedNew){
             size++;
+            writeMetaData(); // Update metadata with new size
         }
     }
 
@@ -637,11 +638,12 @@ public class BTree implements BTreeInterface {
             // Position the file channel to the start of the file
             file.position(0);
 
-            // Write the root address to the metadata
+            // Write the root address and size to the metadata
             ByteBuffer tmpbuffer = ByteBuffer.allocateDirect(METADATA_SIZE);
 
             tmpbuffer.clear();
             tmpbuffer.putLong(rootAddress);
+            tmpbuffer.putLong(size);
 
             tmpbuffer.flip();
             file.write(tmpbuffer);
@@ -667,6 +669,7 @@ public class BTree implements BTreeInterface {
             // Flip the buffer to prepare it for reading
             tmpbuffer.flip();
             rootAddress = tmpbuffer.getLong();
+            size = tmpbuffer.getLong();
         } catch (IOException e) {
             e.printStackTrace();
         }
