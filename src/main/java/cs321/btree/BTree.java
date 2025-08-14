@@ -15,6 +15,10 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
 
+// addition of the cache to improve speed
+import cs321.cache.Cache;
+import cs321.cache.KeyInterface;
+
 public class BTree implements BTreeInterface {
 
     //------------------------------------------------------------------
@@ -25,7 +29,7 @@ public class BTree implements BTreeInterface {
      * Inner class to represent a binary search tree node.
      *
      */
-    private class Node {
+    private class Node implements KeyInterface<Long> {
         private long address; //8 bytes
         private long parent; //8 bytes
         private int numKeys; //4 bytes
@@ -69,6 +73,11 @@ public class BTree implements BTreeInterface {
             isLeaf = true;
         }
 
+        @Override
+        public Long getKey() {
+            return address;
+        }
+
     } // end of Private Node Class
 
     //------------------------------------------------------------------
@@ -77,7 +86,7 @@ public class BTree implements BTreeInterface {
     private long size;
     private int height;
     private int degree;
-    private int METADATA_SIZE = 2 * Long.BYTES; // rootAddress + size
+    private int METADATA_SIZE = Long.BYTES;
     private long nextDiskAddress;
     private FileChannel file;
     private ByteBuffer buffer;
@@ -85,6 +94,14 @@ public class BTree implements BTreeInterface {
 
     private long rootAddress;
     private Node root;
+
+    // Cache (Project 1) — configurable via flags
+    private boolean useCache;               // false when disabled
+    private Cache<Long, Node> cache;        // null when disabled
+
+
+    private static final int DEFAULT_DEGREE = 25;
+
 
 
     //------------------------------------------------------------------
@@ -100,11 +117,17 @@ public class BTree implements BTreeInterface {
 
     public BTree(int degree, String name) {
         this.degree = degree;
-        if (degree < 2) {
+        if (degree == 0) {
+            this.degree = DEFAULT_DEGREE;
+        } else if (degree < 2) {
             throw new IllegalArgumentException("Degree must be at least 2 (or 0 for default).");
+        } else {
+            this.degree = degree;
         }
         this.size = 0;
         this.height = 0;
+        this.useCache = false;
+        this.cache = null;
 
         nodeSize = Integer.BYTES + ((2 * this.degree) - 1) * TreeObject.BYTES + 1 + Long.BYTES + (2 * this.degree) * Long.BYTES + Long.BYTES;
         buffer = ByteBuffer.allocateDirect(nodeSize);
@@ -131,6 +154,18 @@ public class BTree implements BTreeInterface {
 
         } catch (IOException e) {
             e.printStackTrace();
+        }
+    }
+
+    public BTree(int degree, String name, boolean useCache, int cacheSize) {
+        this(degree, name);
+        this.useCache = useCache;
+        this.cache = useCache ? new cs321.cache.Cache<>(cacheSize) : null;
+    }
+
+    public void printCacheStats(java.io.PrintStream out) {
+        if (useCache && cache != null) {
+            out.println(cache.toString());
         }
     }
 
@@ -208,7 +243,6 @@ public class BTree implements BTreeInterface {
             root.isLeaf = true;
             size = 1;
             diskWrite(root);
-            writeMetaData(); // Update metadata with new size
             return; // Exit
         }
 
@@ -223,12 +257,10 @@ public class BTree implements BTreeInterface {
             rootAddress = root.address;
             writeMetaData();
         }
-
-        boolean wasNewKeyInserted = insertInNodeWithSpace(root, obj);
-        if (wasNewKeyInserted) {
+        boolean insertedNew = insertNonFull(root, obj);
+        if (insertedNew){
             size++;
         }
-        writeMetaData(); // Update metadata with new size
     }
 
 
@@ -308,7 +340,7 @@ public class BTree implements BTreeInterface {
             try (PreparedStatement pstmt = conn.prepareStatement(insertSQL)) {
                 dumpInOrderToDatabase(root, pstmt);
             }
-            
+
         } catch (SQLException e) {
             throw new IOException("Database error: " + e.getMessage(), e);
         }
@@ -476,75 +508,71 @@ public class BTree implements BTreeInterface {
 
 
     /**
-     * Inserts key into the node with space
+     * Inserts the key into subtree rooted at Node x which isnt full
+     * It then splits a full child while going down
      *
-     * @param node the B-tree node that currently has fewer than 2t-1
-     * @param key  the  to insert
-     * @return true if a new key was inserted, false if duplicate was found and count incremented
+     * @param x node to go down from
+     * @param k key to insert
+     * @return true if a new key was added else return false if count is increased
+     * @throws IOException for the disk IO errors
      */
-    private boolean insertInNodeWithSpace(Node node, TreeObject key) {
-        int i = node.numKeys - 1;
+    private boolean insertNonFull(Node x, TreeObject k) throws IOException {
 
-        if (node.isLeaf) {
-            // Find position and insert key
-            while (i >= 0 && key.compareTo(node.keys[i]) < 0) {
-                node.keys[i + 1] = node.keys[i];
-                i--;
+        for (int j = 0; j < x.numKeys; j++) {
+            int cmp = k.compareTo(x.keys[j]);
+            if (cmp == 0) {
+                x.keys[j].incCount();
+                diskWrite(x);
+                return false;
             }
-
-            // Check for duplicate
-            if (i >= 0 && key.compareTo(node.keys[i]) == 0) {
-                node.keys[i].incCount();
-                diskWrite(node);
-                return false; // Duplicate found, no new key inserted
-            }
-
-            node.keys[i + 1] = key;
-            node.numKeys++;
-            diskWrite(node);
-            return true; // New key inserted
-        } else {
-            // Find child to insert into
-            while (i >= 0 && key.compareTo(node.keys[i]) < 0) {
-                i--;
-            }
-
-            // Check for duplicate in current node
-            if (i >= 0 && key.compareTo(node.keys[i]) == 0) {
-                node.keys[i].incCount();
-                diskWrite(node);
-                return false; // Duplicate found, no new key inserted
-            }
-
-            i++; // Move to correct child index
-
-            // Create child if it doesn't exist
-            if (diskRead(node.childPointers[i]) == null) {
-                Node child = new Node(null);
-                child.parent = node.address;
-                child.isLeaf = true;
-                child.numKeys = 0;
-                diskWrite(child);
-                node.childPointers[i] = child.address;
-                diskWrite(node);
-            }
-
-            // Check if child is full
-            if (diskRead(node.childPointers[i]).numKeys == 2 * degree - 1) {
-                splitChild(node, i);
-                int cmp = key.compareTo(node.keys[i]);
-                if (cmp == 0) {
-                    node.keys[i].incCount();
-                    diskWrite(node);
-                    return false; // Duplicate found, no new key inserted
-                }
-                if (cmp > 0) {
-                    i++;
-                }
-            }
-            Node child = diskRead(node.childPointers[i]);
-            return insertInNodeWithSpace(child, key); // Return result from recursive call
+            if (x.isLeaf && cmp < 0) break;
         }
+
+        if (x.isLeaf) {
+
+            int i = x.numKeys - 1;
+            while (i >= 0 && k.compareTo(x.keys[i]) < 0) {
+                x.keys[i + 1] = x.keys[i];
+                i--;
+            }
+            x.keys[i + 1] = k;
+            x.numKeys++;
+            diskWrite(x);
+            return true;
+        }
+        int i = x.numKeys - 1;
+        while (i >= 0 && k.compareTo(x.keys[i]) < 0) i--;
+        int childIdx = i + 1;
+
+        Node child = diskRead(x.childPointers[childIdx]);
+
+        if (child != null && child.numKeys == 2 * degree - 1) {
+            splitChild(x, childIdx, child);   // promotes median into x
+
+            int cmpMid = k.compareTo(x.keys[childIdx]);
+            if (cmpMid == 0) {
+                x.keys[childIdx].incCount();
+                diskWrite(x);
+                return false;
+            }
+            if (cmpMid > 0){
+                childIdx++;
+            }
+            child = diskRead(x.childPointers[childIdx]);
+        }
+        return insertNonFull(child, k);
+    }
+
+
+    /**
+     * Splits the full child at childIndex of parent
+     * *
+     * @param parent parent node
+     * @param childIndex index of the full child to split
+     */
+    private void splitChild(Node parent, int childIndex) {
+        Node fullChild = diskRead(parent.childPointers[childIndex]);
+        splitChild(parent, childIndex, fullChild);
     }
 
     /**
@@ -553,25 +581,21 @@ public class BTree implements BTreeInterface {
      * @param parent the node whose child is being split
      * @param childIndex index of the full child within parent.children
      */
-    private void splitChild(Node parent, int childIndex) {
-        Node fullChild = diskRead(parent.childPointers[childIndex]);
+    private void splitChild(Node parent, int childIndex, Node fullChild) {
         Node newSibling = new Node(null);
-
         newSibling.isLeaf = fullChild.isLeaf;
         newSibling.parent = parent.address;
         TreeObject median = fullChild.keys[degree - 1];
-
-        // right half of the sibling
         newSibling.numKeys = degree - 1;
+
         System.arraycopy(fullChild.keys, degree, newSibling.keys, 0, degree - 1);
         if (!fullChild.isLeaf) {
             System.arraycopy(fullChild.childPointers, degree, newSibling.childPointers, 0, degree);
-        }
-        for (int k = degree - 1; k < (2 * degree - 1); k++) {
-            fullChild.keys[k] = null;
+            Arrays.fill(fullChild.childPointers, degree, degree * 2, 0L);
         }
 
-        // Reduce the number of keys in full child
+        // clear moved keys in old child
+        Arrays.fill(fullChild.keys, degree - 1, 2 * degree - 1, null);
         fullChild.numKeys = degree - 1;
 
         // Make space for new child pointer in parent
@@ -613,12 +637,11 @@ public class BTree implements BTreeInterface {
             // Position the file channel to the start of the file
             file.position(0);
 
-            // Write the root address and size to the metadata
+            // Write the root address to the metadata
             ByteBuffer tmpbuffer = ByteBuffer.allocateDirect(METADATA_SIZE);
 
             tmpbuffer.clear();
             tmpbuffer.putLong(rootAddress);
-            tmpbuffer.putLong(size);
 
             tmpbuffer.flip();
             file.write(tmpbuffer);
@@ -644,7 +667,6 @@ public class BTree implements BTreeInterface {
             // Flip the buffer to prepare it for reading
             tmpbuffer.flip();
             rootAddress = tmpbuffer.getLong();
-            size = tmpbuffer.getLong();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -660,6 +682,13 @@ public class BTree implements BTreeInterface {
         // If the disk address is 0, return null (indicating no node)
         if(diskAddress == 0) {
             return null;
+        }
+
+        if (useCache) {
+            Node hit = cache.get(diskAddress);
+            if (hit != null) {
+                return hit;
+            }
         }
 
         // Position the file channel to the disk address
@@ -708,6 +737,10 @@ public class BTree implements BTreeInterface {
         // Set the address of the node
         tempNode.address = diskAddress;
         buffer.getLong();
+
+        if (useCache) {
+            cache.add(tempNode);
+        }
 
         return tempNode;
     }
@@ -770,6 +803,11 @@ public class BTree implements BTreeInterface {
 
             // Write the buffer to the file
             file.write(buffer);
+
+            if (useCache) {
+                cache.add(x);
+            }
+
         } catch (IOException e) {
             e.printStackTrace();
         }
