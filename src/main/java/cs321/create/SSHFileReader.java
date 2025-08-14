@@ -33,7 +33,7 @@ public class SSHFileReader {
      */
     public List<String> readEntries() throws Exception {
         List<String> entries = new ArrayList<>();
-        String[] wrangleArgs = {fileName, "wrangled_SSH_log.txt"};
+        String[] wrangleArgs = {"rawSSHFile=" + fileName, "sshFile=wrangled_SSH_log.txt"};
         SSHDataWrangler.main(wrangleArgs);
 
         File wrangledFile = new File("wrangled_SSH_log.txt");

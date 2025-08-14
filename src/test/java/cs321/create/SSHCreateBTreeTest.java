@@ -17,8 +17,8 @@ public class SSHCreateBTreeTest
 
         String cache = "0";
         String degree = rand.nextInt(23) + 2 + "";
-        String sshFile = "SSH_log.txt";
-        String[] types = {"accepted-id", "accepted-time", "failed-ip", "failed-time", "invalid-ip", "invalid-time", "reverseaddress-ip", "reverseaddress-time", "user-ip"};
+        String sshFile = "data/SSH_Files/SSH_log.txt";
+        String[] types = {"accepted-ip", "accepted-time", "failed-ip", "failed-time", "invalid-ip", "invalid-time", "reverseaddress-ip", "reverseaddress-time", "user-ip"};
         String type = types[rand.nextInt(types.length)];
         String database = "no";
 
