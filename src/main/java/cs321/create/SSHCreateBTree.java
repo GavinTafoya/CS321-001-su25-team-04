@@ -155,7 +155,6 @@ public class SSHCreateBTree {
         return arguments;
     }
 
-
 	/** 
 	 * Print usage message and exit.
 	 * @param errorMessage the error message for proper usage
