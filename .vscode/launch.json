@@ -6,6 +6,13 @@
     "configurations": [
         {
             "type": "java",
+            "name": "SSHDataWranglerTest",
+            "request": "launch",
+            "mainClass": "cs321.create.SSHDataWranglerTest",
+            "projectName": "CS321_Cybersecurity-CS321-001-su25-team-04"
+        },
+        {
+            "type": "java",
             "name": "Current File",
             "request": "launch",
             "mainClass": "${file}"

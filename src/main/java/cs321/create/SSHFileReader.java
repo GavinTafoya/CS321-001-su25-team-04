@@ -29,12 +29,17 @@ public class SSHFileReader {
     /**
      * Read and return all entries from the SSH log file.
      * @return A list of log entries.
+     * @throws Exception 
      */
-    public List<String> readEntries() {
+    public List<String> readEntries() throws Exception {
         List<String> entries = new ArrayList<>();
+        String[] wrangleArgs = {fileName, "wrangled_SSH_log.txt"};
+        SSHDataWrangler.main(wrangleArgs);
+
+        File wrangledFile = new File("wrangled_SSH_log.txt");
 
         // Read the SSH log file
-        try (Scanner scanner = new Scanner(new File(fileName))) {
+        try (Scanner scanner = new Scanner(wrangledFile)) {
             String keyStart = treeType[0] + "-";
 
             // Determine the type of information to extract
