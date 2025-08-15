@@ -41,13 +41,13 @@ public class SSHCreateBTree {
 
         // Insert log entries into the BTree
         for (String entry : logEntries) {
-            TreeObject treeObject = new TreeObject(entry);
+            TreeObject treeObject = new TreeObject(normalizeKey(entry));
             bTree.insert(treeObject);
         }
 
         // Dump file if debug is enabled
         if (myArgs.getDebugLevel() == 1) {
-            try (PrintWriter printWriter = new PrintWriter(new File("BTreeDump.txt"))) {
+            try (PrintWriter printWriter = new PrintWriter(new File("dump-" + myArgs.getTreeType() + "." + myArgs.getDegree() + ".txt"))) {
                 bTree.dumpToFile(printWriter);
             }
         }
@@ -71,8 +71,8 @@ public class SSHCreateBTree {
         }
 
         // Validate --cache argument
-        if (!argMap.containsKey("--cache") 
-        || !(argMap.get("--cache").equals("0") || argMap.get("--cache").equals("1"))) {
+        if (!argMap.containsKey("--cache")
+                || !(argMap.get("--cache").equals("0") || argMap.get("--cache").equals("1"))) {
             printUsageAndExit("Error: --cache argument is required.");
         }
 
@@ -94,19 +94,19 @@ public class SSHCreateBTree {
         }
 
         // Validate --sshFile argument
-        if (!argMap.containsKey("--sshFile") 
-        || argMap.get("--sshFile").isEmpty()) {
+        if (!argMap.containsKey("--sshFile")
+                || argMap.get("--sshFile").isEmpty()) {
             printUsageAndExit("Error: --sshFile argument is required.");
         }
 
         // Validate --type argument
         if(!argMap.containsKey("--type")
-        || argMap.get("--type").isEmpty()) {
+                || argMap.get("--type").isEmpty()) {
             printUsageAndExit("Error: --type argument is required.");
         }
 
         // Validate --cache-size argument
-       if (argMap.get("--cache").equals("1")) {
+        if (argMap.get("--cache").equals("1")) {
             if (!argMap.containsKey("--cache-size")) {
                 printUsageAndExit("Error: --cache-size required when cache is enabled.");
             }
@@ -123,7 +123,7 @@ public class SSHCreateBTree {
         }
 
         // Validate --database argument
-        if (!argMap.containsKey("--database") 
+        if (!argMap.containsKey("--database")
         || argMap.get("--database").isEmpty()
         || !(argMap.get("--database").equals("yes") || argMap.get("--database").equals("no"))) {
             printUsageAndExit("Error: --database argument is required.");
@@ -140,16 +140,16 @@ public class SSHCreateBTree {
         }
 
         // Get the degree
-        int degree = (!argMap.get("--degree").equals("0")) ? Integer.parseInt(argMap.get("--degree")) : 25;
+        int degree = Integer.parseInt(argMap.get("--degree"));
 
         // Create the SSHCreateBTreeArguments object
         SSHCreateBTreeArguments arguments = new SSHCreateBTreeArguments(
-            argMap.get("--cache").equals("1"), 
-            degree,
-            argMap.get("--sshFile"), 
-            argMap.get("--type"),
-            Integer.parseInt(argMap.get("--cache-size")),
-            Integer.parseInt(argMap.get("--debug"))
+                argMap.get("--cache").equals("1"),
+                degree,
+                argMap.get("--sshFile"),
+                argMap.get("--type"),
+                Integer.parseInt(argMap.get("--cache-size")),
+                Integer.parseInt(argMap.get("--debug"))
         );
 
         return arguments;
@@ -163,9 +163,13 @@ public class SSHCreateBTree {
     {
         System.out.println(errorMessage);
         System.out.println("Usage: java -jar build/libs/SSHCreateBTree.jar --cache=<0/1> --degree=<btree-degree> \\\n"
-        + "--sshFile=<ssh-File> --type=<tree-type> [--cache-size=<n>] \\\n"
-        +  "--database=<yes/no> [--debug=<0|1>]);");
+                + "--sshFile=<ssh-File> --type=<tree-type> [--cache-size=<n>] \\\n"
+                +  "--database=<yes/no> [--debug=<0|1>]);");
         System.exit(1);
-	}
+    }
+
+    private static String normalizeKey(String s) {
+        return s.length() > 32 ? s.substring(0, 32) : s;
+    }
 
 }

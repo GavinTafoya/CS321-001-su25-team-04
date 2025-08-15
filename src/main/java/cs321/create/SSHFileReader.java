@@ -33,53 +33,49 @@ public class SSHFileReader {
      */
     public List<String> readEntries() throws Exception {
         List<String> entries = new ArrayList<>();
-        String[] wrangleArgs = {"rawSSHFile=" + fileName, "sshFile=wrangled_SSH_log.txt"};
-        SSHDataWrangler.main(wrangleArgs);
 
-        File wrangledFile = new File("wrangled_SSH_log.txt");
+        File wrangledFile = new File(fileName);
 
-        // Read the SSH log file
         try (Scanner scanner = new Scanner(wrangledFile)) {
-            String keyStart = treeType[0] + "-";
+            while (scanner.hasNextLine()) {
+                String line = scanner.nextLine().trim();
+                if (line.isEmpty()) continue;
+                String[] t = line.split("\\s+");
+                if (t.length < 3) continue;
 
-            // Determine the type of information to extract
-            switch(treeType[1]){
-                case "ip":
-                    //Find ips at desired results
-                    while (scanner.hasNextLine()) {
-                        String line = scanner.nextLine();
-                        // Extract the IP address
-                        if(treeType[0].equals("user")){
-                            entries.add(line.split(" ")[3] + "-" + line.split(" ")[4]);
-                            
-                        } 
-                        else if (treeType[0].equals("reverseaddress")) {
-                            if(line.contains("reverse") || line.contains("Address")){
-                                entries.add(keyStart + line.split(" ")[4]);
-                            }
+                String action = t[2];
+                String kind   = treeType[0];
+                String mode   = treeType[1];
+
+                String hhmm = (t[1].length() >= 5) ? t[1].substring(0, 5) : t[1];
+
+                if ("ip".equals(mode)) {
+                    if ("user".equals(kind)) {
+                        if (!action.equalsIgnoreCase("reverse") && !action.equalsIgnoreCase("Address") && t.length >= 5) {
+                            entries.add(t[3] + "-" + t[4]);
                         }
-                        else {
-                            if(line.contains(treeType[0].toUpperCase())){
-                                entries.add(keyStart + line.split(" ")[4]);
-                            }
+                    } else if ("reverseaddress".equals(kind)) {
+                        // Include both reverse and Address; IP is t[3]
+                        if ((action.equalsIgnoreCase("reverse") || action.equalsIgnoreCase("Address")) && t.length >= 4) {
+                            entries.add(action + "-" + t[3]); // <- IMPORTANT prefix: actual action
                         }
-                    }
-                    break;
-                case "time":
-                    // Extract the times at desired results
-                    while (scanner.hasNextLine()) {
-                        String line = scanner.nextLine();
-                        // Extract the time
-                        if(line.contains(treeType[0].toUpperCase())){
-                            entries.add(keyStart + line.split(" ")[1]);
+                    } else {
+                        if (action.equalsIgnoreCase(kind) && t.length >= 5) {
+                            entries.add(action + "-" + t[4]);
                         }
                     }
-                    break;
-                default:
-                    break;
+                } else if ("time".equals(mode)) {
+                    if ("reverseaddress".equals(kind)) {
+                        if (action.equalsIgnoreCase("reverse") || action.equalsIgnoreCase("Address")) {
+                            entries.add(action + "-" + hhmm);
+                        }
+                    } else {
+                        if (action.equalsIgnoreCase(kind)) {
+                            entries.add(action + "-" + hhmm);
+                        }
+                    }
+                }
             }
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
         }
         return entries;
     }
