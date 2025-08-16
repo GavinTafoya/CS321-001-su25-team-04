@@ -4,7 +4,7 @@
 | Last Name | First Name | GitHub User Name |
 |-----------|------------|------------------|
 | Huett     | Alexander  | Tettanger-afk    |
-| TBD       | TBD        | TBD              |
+| Rao       | Ahmad      | arjrao91219      |
 | TBD       | TBD        | TBD              |
 
 # Test Results
@@ -28,7 +28,12 @@ Provide a reflection by each of the team member (in a separate subsection)
     This wasn't too bad of a project. Working in groups was actually pretty fun. Especially since everybody did something and contributed. Ahmad started on insert and I finished it, I started on search and he finished that. It was good work. Gavin contributed of course, finishing up all lot of the peripheral.
 
     However, when we hit week 3(of the project) it got significantly harder. Dump-to-File/Database was an absolute nightmare. There were issues with meta data. reading the file, creating the file, make sure the file had the correct number of logs or any logs, etc, etc. We still didn't get dump-check finishing. I thought I did, but something more fundemental was going on with those. I checked btree and SSHFileReader a bunch of times and wrote a bunch of tests for both, but it was still broken.
-## Reflection (Team member name: )
+## Reflection (Team member name: Ahmad Rao )
+    This project wasnt too bad and working with group was a pretty fun aspect and made life easier. Everyone in our groups co-operated very well. I started on the insert and created helped methods for it which wasnt to bad and the cache implementation. Alex did the search and I helped complete it. Gavin did the diskwrite and the dikread and the extra credit stuff aswell.
+
+    This week (week 3) was a lot harder in my opinion. It wasnt really logic based but wiring things together which was a lot harder for me. Me and Alex were trying to get thr scripts to run. It took me a long time to figure out chek-btree-search.sh and check-db-search.sh to start working. Although we didnt get to the dump-check failing. I couldnt find whats wrong with it. I changed the btree and SSHcreatebtree and the SSHFile reader and wrote a bunch of tests like Alex but it still was broken. 
+
+
 ## Reflection (Team member name: )
 
 # Additional Notes
