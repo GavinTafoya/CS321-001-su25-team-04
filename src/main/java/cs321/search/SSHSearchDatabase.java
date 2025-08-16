@@ -1,15 +1,13 @@
 package cs321.search;
 
-import cs321.btree.BTree;
-import cs321.common.ParseArgumentException;
-import cs321.common.ParseArgumentUtils;
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.Statement;
 
-/**
- * The driver class for searching a Database of a B-Tree.
- */
-public class SSHSearchDatabase
-{
+/** Search the SQLite DB built from the BTrees. */
+public class SSHSearchDatabase {
 
     private static final String[][] TEST_DATA = {
             {"Accepted-111.222.107.90", "25"},
@@ -45,44 +43,50 @@ public class SSHSearchDatabase
             String dbPath = arguments.getDatabaseFileName();
             String treeType = arguments.getBTreeType();
             int topN = arguments.getTopFrequencyCount();
-            String tableName = treeType.replace("-", "");
-            Connection connection = DriverManager.getConnection("jdbc:sqlite:" + dbPath);
-            Statement stmt = connection.createStatement();
 
-            if (treeType.equalsIgnoreCase("test")) {
-                stmt.execute("CREATE TABLE IF NOT EXISTS acceptedip (key TEXT PRIMARY KEY, frequency INTEGER)");
-                PreparedStatement insert = connection.prepareStatement("INSERT OR REPLACE INTO acceptedip (key, frequency) VALUES (?, ?)");
-                for (String[] row : TEST_DATA) {
-                    insert.setString(1, row[0]);
-                    insert.setInt(2, Integer.parseInt(row[1]));
-                    insert.executeUpdate();
-                }
-                insert.close();
+            String url = "jdbc:sqlite:" + dbPath;
 
-                PreparedStatement query = connection.prepareStatement(
-                        "SELECT key, frequency FROM acceptedip ORDER BY frequency DESC, key ASC LIMIT ?");
-                query.setInt(1, topN);
-                ResultSet rs = query.executeQuery();
-                while (rs.next()) {
-                    System.out.println(rs.getString("key") + " " + rs.getInt("frequency"));
+            try (Connection conn = DriverManager.getConnection(url)) {
+                if (treeType.equalsIgnoreCase("test")) {
+                    try (Statement stmt = conn.createStatement()) {
+                        stmt.execute("DROP TABLE IF EXISTS acceptedip");
+                        stmt.execute("CREATE TABLE acceptedip (key TEXT PRIMARY KEY, frequency INTEGER NOT NULL)");
+                    }
+                    try (PreparedStatement insert = conn.prepareStatement("INSERT INTO acceptedip(key,frequency) VALUES(?,?)")) {
+                        for (String[] row : TEST_DATA) {
+                            insert.setString(1, row[0]);
+                            insert.setInt(2, Integer.parseInt(row[1]));
+                            insert.executeUpdate();
+                        }
+                    }
+                    try (PreparedStatement q =
+                                 conn.prepareStatement("SELECT key,frequency FROM acceptedip ORDER BY frequency DESC, key ASC LIMIT ?")) {
+                        q.setInt(1, topN);
+                        try (ResultSet rs = q.executeQuery()) {
+                            while (rs.next()) {
+                                System.out.println(rs.getString("key") + " " + rs.getInt("frequency"));
+                            }
+                        }
+                    }
+                } else {
+                    String table = treeType.replace("-", "");
+                    try (PreparedStatement q =
+                                 conn.prepareStatement("SELECT key,frequency FROM " + table + " ORDER BY frequency DESC, key ASC LIMIT ?")) {
+                        q.setInt(1, topN);
+                        try (ResultSet rs = q.executeQuery()) {
+                            while (rs.next()) {
+                                System.out.println(rs.getString("key") + " " + rs.getInt("frequency"));
+                            }
+                        }
+                    }
                 }
-                rs.close();
-                query.close();
-            } else {
-                PreparedStatement query = connection.prepareStatement("SELECT key, frequency FROM " + tableName + " ORDER BY frequency DESC, key ASC LIMIT ?");
-                query.setInt(1, topN);
-                ResultSet rs = query.executeQuery();
-                while (rs.next()) {
-                    System.out.println(rs.getString("key") + " " + rs.getInt("frequency"));
-                }
-                rs.close();
-                query.close();
             }
-            stmt.close();
-            connection.close();
+        } catch (IllegalArgumentException e) {
+            System.err.println(e.getMessage());
+            System.exit(1);
         } catch (Exception e) {
             System.err.println("Error: " + e.getMessage());
-            e.printStackTrace();
+            System.exit(2);
         }
     }
 }

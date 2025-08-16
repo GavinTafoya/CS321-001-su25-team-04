@@ -52,7 +52,8 @@ public class SSHCreateBTree {
             }
         }
 
-        bTree.dumpToDatabase("SSHLogDB.db", myArgs.getTreeType() + "." + myArgs.getDegree());
+        String tableName = myArgs.getTreeType().replace("-", "");
+        bTree.dumpToDatabase("SSHLogDB.db", tableName);
 	}
 
 

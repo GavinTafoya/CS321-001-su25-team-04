@@ -722,8 +722,22 @@ public class BTree implements BTreeInterface {
         for (int i = 0; i < (2 * degree) - 1; i++) {
             byte[] readBytes = new byte[TreeObject.BYTES - Long.BYTES];
             buffer.get(readBytes);
-            String string = new String(readBytes, StandardCharsets.UTF_16BE).trim();
-            tempNode.keys[i] = new TreeObject(string, buffer.getLong());
+
+            int actualLen = readBytes.length;
+            for (int j = 0; j < readBytes.length - 1; j += 2) {
+                if (readBytes[j] == 0 && readBytes[j + 1] == 0) {
+                    actualLen = j;
+                    break;
+                }
+            }
+
+            long count = buffer.getLong();
+            if (actualLen > 0) {
+                String string = new String(readBytes, 0, actualLen, StandardCharsets.UTF_16BE);
+                tempNode.keys[i] = new TreeObject(string, count);
+            } else {
+                tempNode.keys[i] = null;
+            }
         }
 
         // Read whether the node is a leaf

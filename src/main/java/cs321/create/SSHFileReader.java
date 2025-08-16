@@ -1,7 +1,6 @@
 package cs321.create;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
@@ -13,33 +12,27 @@ import java.util.Scanner;
  */
 public class SSHFileReader {
 
-    private String fileName;
-    private String treeType[];
+    private final String fileName;
+    private final String[] treeType;
 
-    /**
-     * Constructor for SSHFileReader.
-     * @param sshFileName The name of the SSH log file to read.
-     */
+    private static boolean isIPv4(String s) {
+        return s != null && s.matches("\\d{1,3}(?:\\.\\d{1,3}){3}");
+    }
+
     public SSHFileReader(String sshFileName, String treeType) {
-        // Initialize with the SSH file name
         this.fileName = sshFileName;
         this.treeType = treeType.split("-");
     }
 
-    /**
-     * Read and return all entries from the SSH log file.
-     * @return A list of log entries.
-     * @throws Exception 
-     */
     public List<String> readEntries() throws Exception {
         List<String> entries = new ArrayList<>();
-
         File wrangledFile = new File(fileName);
 
         try (Scanner scanner = new Scanner(wrangledFile)) {
             while (scanner.hasNextLine()) {
                 String line = scanner.nextLine().trim();
                 if (line.isEmpty()) continue;
+
                 String[] t = line.split("\\s+");
                 if (t.length < 3) continue;
 
@@ -51,13 +44,22 @@ public class SSHFileReader {
 
                 if ("ip".equals(mode)) {
                     if ("user".equals(kind)) {
-                        if (!action.equalsIgnoreCase("reverse") && !action.equalsIgnoreCase("Address") && t.length >= 5) {
+                        if (!action.equalsIgnoreCase("reverse")
+                                && !action.equalsIgnoreCase("Address")
+                                && t.length >= 5
+                                && isIPv4(t[4])) {
                             entries.add(t[3] + "-" + t[4]);
                         }
                     } else if ("reverseaddress".equals(kind)) {
-                        // Include both reverse and Address; IP is t[3]
-                        if ((action.equalsIgnoreCase("reverse") || action.equalsIgnoreCase("Address")) && t.length >= 4) {
-                            entries.add(action + "-" + t[3]); // <- IMPORTANT prefix: actual action
+                        if (action.equalsIgnoreCase("reverse") || action.equalsIgnoreCase("Address")) {
+                            String ip = null;
+                            for (int i = 3; i < t.length; i++) {
+                                if (isIPv4(t[i])) { ip = t[i]; break; }
+                            }
+                            if (ip != null) {
+                                String prefix = action.equalsIgnoreCase("Address") ? "Address-" : "reverse-";
+                                entries.add(prefix + ip);
+                            }
                         }
                     } else {
                         if (action.equalsIgnoreCase(kind) && t.length >= 5) {
@@ -67,7 +69,8 @@ public class SSHFileReader {
                 } else if ("time".equals(mode)) {
                     if ("reverseaddress".equals(kind)) {
                         if (action.equalsIgnoreCase("reverse") || action.equalsIgnoreCase("Address")) {
-                            entries.add(action + "-" + hhmm);
+                            String prefix = action.equalsIgnoreCase("Address") ? "Address-" : "reverse-";
+                            entries.add(prefix + hhmm);
                         }
                     } else {
                         if (action.equalsIgnoreCase(kind)) {
